@@ -117,6 +117,16 @@ RESPONSES = {
     ],
 }
 
+EMOTION_ICONS = {
+    "joy": "🎉",
+    "sadness": "🌧️",
+    "anger": "🔥",
+    "fear": "🛡️",
+    "surprise": "⚡",
+    "disgust": "🤢",
+    "neutral": "💬",
+}
+
 st.title("IFeelYou — Emotion Detector")
 st.write("Enter some text and I'll tell you what emotion it expresses — and suggest how to respond.")
 
@@ -125,12 +135,18 @@ with st.spinner("Loading model..."):
 
 text = st.text_area("Your text:")
 
+# Helper function to pick a response without repeating the exact same one immediately
+def get_random_response(emotion_label):
+    options = RESPONSES.get(emotion_label, [])
+    if not options:
+        return "No template available for this emotion yet."
+    current = st.session_state.get("current_suggestion")
+    available = [res for res in options if res != current] or options
+    return random.choice(available)
+
 if st.button("Analyze"):
     if text.strip():
         import torch
-        
-        # Trigger an animation while processing
-        st.toast("Analyzing emotions...", icon="✨")
 
         inputs = tokenizer(text, return_tensors="pt", truncation=True)
         with torch.no_grad():
@@ -140,37 +156,66 @@ if st.button("Analyze"):
         top_idx = probs.argmax().item()
         emotion = labels[top_idx].lower()
 
-        # Trigger festive animations based on emotion
-        if emotion in ["joy", "surprise"]:
+        # Save results in session state so re-runs (like clicking refresh) preserve state
+        st.session_state["analyzed"] = True
+        st.session_state["emotion"] = emotion
+        st.session_state["probs"] = probs.tolist()
+        st.session_state["labels"] = labels
+        st.session_state["top_idx"] = top_idx
+        st.session_state["current_suggestion"] = get_random_response(emotion)
+
+        # Trigger dynamic animations
+        if emotion == "joy":
             st.balloons()
-        elif emotion in ["sadness", "fear"]:
+            st.toast("Celebrating your joy! 🎉", icon="🎉")
+        elif emotion == "sadness":
             st.snow()
-
-        # --- 1. SUGGESTED RESPONSE ON TOP ---
-        st.subheader("💬 Suggested Response")
-        if emotion in RESPONSES:
-            suggestion = random.choice(RESPONSES[emotion])
-            st.info(suggestion)
-            if st.button("🔄 Show another suggestion"):
-                st.info(random.choice(RESPONSES[emotion]))
+            st.toast("Sending warmth your way... 🌧️", icon="🌧️")
+        elif emotion == "anger":
+            st.toast("Deep breath... releasing the tension 🔥", icon="🔥")
+        elif emotion == "fear":
+            st.snow()
+            st.toast("You are safe and supported 🛡️", icon="🛡️")
+        elif emotion == "surprise":
+            st.balloons()
+            st.toast("Whoa! What a twist! ⚡", icon="⚡")
+        elif emotion == "disgust":
+            st.toast("Ugh, totally understandable reaction 🤢", icon="🤢")
         else:
-            st.write("No template available for this emotion yet.")
-
-        st.divider()
-
-        # --- 2. PREDICTED EMOTION & CONFIDENCE ---
-        st.success(f"Predicted emotion: **{emotion.upper()}** ({probs[top_idx]*100:.1f}% confidence)")
-
-        # --- 3. TOP 3 SCORES ONLY ---
-        st.write("### Top 3 Scores:")
-        
-        # Combine labels and probabilities, then sort by highest score
-        scores = [(labels[i], probs[i].item()) for i in range(len(probs))]
-        top_3_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
-
-        for label, score in top_3_scores:
-            st.write(f"**{label.capitalize()}**: {score * 100:.1f}%")
-            st.progress(score)  # Visual animated progress bar for scores
-
+            st.toast("Got it, steady and balanced ✨", icon="💬")
     else:
         st.warning("Please enter some text first.")
+        st.session_state["analyzed"] = False
+
+# Render results whenever an analysis exists in state
+if st.session_state.get("analyzed", False):
+    emotion = st.session_state["emotion"]
+    probs = st.session_state["probs"]
+    labels = st.session_state["labels"]
+    top_idx = st.session_state["top_idx"]
+    icon = EMOTION_ICONS.get(emotion, "💬")
+
+    # --- 1. SUGGESTED RESPONSE ON TOP ---
+    st.subheader(f"{icon} Suggested Response")
+    st.info(st.session_state["current_suggestion"])
+
+    # Refresh button picks a new string from the SAME emotion list
+    if st.button("🔄 Show another suggestion"):
+        st.session_state["current_suggestion"] = get_random_response(emotion)
+        st.rerun()
+
+    st.divider()
+
+    # --- 2. PREDICTED EMOTION & CONFIDENCE ---
+    st.success(f"Predicted emotion: **{emotion.upper()}** {icon} ({probs[top_idx]*100:.1f}% confidence)")
+
+    # --- 3. TOP 3 SCORES ONLY ---
+    st.write("### Top 3 Detected Emotions:")
+    scores = [(labels[str(i) if isinstance(labels, dict) and str(i) in labels else i], probs[i]) for i in range(len(probs))]
+    top_3_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
+
+    for label, score in top_3_scores:
+        lbl_lower = label.lower()
+        lbl_icon = EMOTION_ICONS.get(lbl_lower, "📊")
+        st.write(f"**{lbl_icon} {label.capitalize()}**: {score * 100:.1f}%")
+        st.progress(score)
