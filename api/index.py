@@ -6,8 +6,9 @@ from pydantic import BaseModel
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-# Official Hugging Face Router Endpoint
-HF_MODEL_URL = "https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english"
+# Point to your custom emotion detection model
+MODEL_ID = "Alikhllo/IFeelYou-model"
+HF_MODEL_URL = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 
 class PredictRequest(BaseModel):
@@ -21,18 +22,18 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>IFeelYou - Sentiment Analysis</title>
+        <title>IFeelYou - Emotion Detection</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
         <div class="max-w-md w-full bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-700">
-            <h1 class="text-2xl font-bold mb-2 text-center text-indigo-400">IFeelYou Sentiment AI</h1>
-            <p class="text-gray-400 text-sm mb-6 text-center">Analyze text emotion in real time</p>
+            <h1 class="text-2xl font-bold mb-2 text-center text-indigo-400">IFeelYou Emotion AI</h1>
+            <p class="text-gray-400 text-sm mb-6 text-center">Detect emotion in real time</p>
             
             <textarea id="inputText" rows="4" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4" placeholder="Type something here..."></textarea>
             
             <button id="btn" onclick="analyzeSentiment()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition duration-200">
-                Analyze Sentiment
+                Analyze Emotion
             </button>
             
             <div id="result" class="mt-6 hidden p-4 rounded-lg bg-gray-900 border border-gray-700">
@@ -67,10 +68,17 @@ def home():
                     const data = await res.json();
                     
                     if (data.label) {
-                        labelDiv.innerText = "Label: " + data.label;
-                        labelDiv.className = data.label.toLowerCase().includes("pos") || data.label === "POSITIVE" 
-                            ? "text-xl font-bold mt-1 text-green-400" 
-                            : "text-xl font-bold mt-1 text-red-400";
+                        const labelText = data.label.toUpperCase();
+                        labelDiv.innerText = "Emotion: " + labelText;
+                        
+                        // Dynamic styling based on emotion
+                        if (labelText.includes("HAPPY") || labelText.includes("JOY")) {
+                            labelDiv.className = "text-xl font-bold mt-1 text-green-400";
+                        } else if (labelText.includes("ANGER") || labelText.includes("SAD")) {
+                            labelDiv.className = "text-xl font-bold mt-1 text-red-400";
+                        } else {
+                            labelDiv.className = "text-xl font-bold mt-1 text-indigo-400";
+                        }
                         
                         const confPercent = data.confidence ? (data.confidence * 100).toFixed(2) + "%" : "N/A";
                         confDiv.innerText = "Confidence: " + confPercent;
@@ -103,7 +111,7 @@ def predict(data: PredictRequest):
     else:
         return {
             "error": "Configuration Error",
-            "details": "HF_TOKEN environment variable is missing on Vercel."
+            "details": "HF_TOKEN environment variable is missing."
         }
 
     try:
@@ -117,7 +125,7 @@ def predict(data: PredictRequest):
         content_type = response.headers.get("Content-Type", "")
         if "application/json" not in content_type:
             return {
-                "error": f"Hugging Face returned status {response.status_code}",
+                "error": f"Hugging Face Status {response.status_code}",
                 "details": response.text[:150]
             }
 
