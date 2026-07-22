@@ -1,24 +1,15 @@
 import os
+import requests
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from transformers import pipeline
 
 app = FastAPI(title="IFeelYou Emotion API")
 
 MODEL_ID = "Alikhllo/IFeelYou-model"
+# Direct inference endpoint URL
+HF_MODEL_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
-
-# Initialize pipeline locally in the app
-try:
-    classifier = pipeline(
-        "text-classification",
-        model=MODEL_ID,
-        token=HF_TOKEN if HF_TOKEN else None
-    )
-except Exception as e:
-    classifier = None
-    print(f"Error loading model: {e}")
 
 class PredictRequest(BaseModel):
     text: str
@@ -112,25 +103,53 @@ def home():
 
 @app.post("/predict")
 def predict(data: PredictRequest):
-    if not classifier:
-        return {
-            "error": "Model Error",
-            "details": "Model failed to initialize or load from Hugging Face."
-        }
+    headers = {"Content-Type": "application/json"}
+    
+    if HF_TOKEN:
+        headers["Authorization"] = f"Bearer {HF_TOKEN}"
 
     try:
-        results = classifier(data.text)
-        if isinstance(results, list) and len(results) > 0:
-            top_result = results[0]
+        response = requests.post(
+            HF_MODEL_URL,
+            headers=headers,
+            json={"inputs": data.text},
+            timeout=15
+        )
+
+        results = response.json()
+
+        # Handle model cold-start loading time on Hugging Face
+        if isinstance(results, dict) and "error" in results and "currently loading" in results["error"]:
             return {
-                "text": data.text,
-                "label": top_result.get("label"),
-                "confidence": top_result.get("score")
+                "error": "Model Warm-up",
+                "details": "Model is waking up on Hugging Face servers. Try again in 10-15 seconds."
             }
-        return {"text": data.text, "raw_output": str(results)}
+
+        if response.status_code == 200:
+            if isinstance(results, list) and len(results) > 0:
+                item = results[0]
+                if isinstance(item, list) and len(item) > 0:
+                    top_result = item[0]
+                    return {
+                        "text": data.text,
+                        "label": top_result.get("label"),
+                        "confidence": top_result.get("score")
+                    }
+                elif isinstance(item, dict) and "label" in item:
+                    return {
+                        "text": data.text,
+                        "label": item.get("label"),
+                        "confidence": item.get("score")
+                    }
+            return {"text": data.text, "raw_output": results}
+
+        return {
+            "error": f"Hugging Face Error ({response.status_code})",
+            "details": str(results)
+        }
 
     except Exception as e:
         return {
-            "error": "Backend exception",
+            "error": "Backend Exception",
             "details": str(e)
         }
