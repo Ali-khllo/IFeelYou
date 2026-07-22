@@ -7,8 +7,9 @@ from huggingface_hub import InferenceClient
 app = FastAPI(title="IFeelYou Sentiment API")
 
 # Hugging Face Access Token & Model Configuration
-HF_TOKEN = os.getenv("HF_TOKEN", "")
-# Using pre-warmed public sentiment model
+HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
+
+# Base pre-warmed model (Change to "Alikhllo/IFeelYou-model" if you want your custom model)
 MODEL_ID = "distilbert/distilbert-base-uncased-finetuned-sst-2-english"
 
 # Initialize Hugging Face Inference Client
@@ -101,14 +102,13 @@ def home():
 @app.post("/predict")
 def predict(data: PredictRequest):
     try:
-        # Use task-specific inference method
+        # Request classification via huggingface_hub client
         results = client.text_classification(text=data.text, model=MODEL_ID)
         
         if isinstance(results, list) and len(results) > 0:
             top_result = results[0]
-            # Handle object or dict output safely
-            label = getattr(top_result, "label", None) or top_result.get("label")
-            score = getattr(top_result, "score", None) or top_result.get("score")
+            label = getattr(top_result, "label", None) or (top_result.get("label") if isinstance(top_result, dict) else None)
+            score = getattr(top_result, "score", None) or (top_result.get("score") if isinstance(top_result, dict) else None)
             
             return {
                 "text": data.text,
