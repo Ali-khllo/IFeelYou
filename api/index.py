@@ -6,9 +6,11 @@ from pydantic import BaseModel
 
 app = FastAPI(title="IFeelYou Emotion API")
 
-MODEL_ID = "Alikhllo/IFeelYou-model"
-# Direct inference endpoint URL
-HF_MODEL_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+# Primary: Custom Fine-Tuned Model
+CUSTOM_MODEL = "Alikhllo/IFeelYou-model"
+# Fallback: Multi-class Emotion Model (Happy, Sad, Anger, Joy, Fear, Surprise)
+FALLBACK_MODEL = "bhadresh-savani/distilbert-base-uncased-emotion"
+
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 
 class PredictRequest(BaseModel):
@@ -22,13 +24,13 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>IFeelYou - Emotion Detection</title>
+        <title>IFeelYou - Emotion AI</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
         <div class="max-w-md w-full bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-700">
             <h1 class="text-2xl font-bold mb-2 text-center text-indigo-400">IFeelYou Emotion AI</h1>
-            <p class="text-gray-400 text-sm mb-6 text-center">Detect emotion in real time</p>
+            <p class="text-gray-400 text-sm mb-6 text-center">Detect emotions in real time (Happy, Sad, Anger, Joy)</p>
             
             <textarea id="inputText" rows="4" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4" placeholder="Type something here..."></textarea>
             
@@ -80,7 +82,7 @@ def home():
                         }
                         
                         const confPercent = data.confidence ? (data.confidence * 100).toFixed(2) + "%" : "N/A";
-                        confDiv.innerText = "Confidence: " + confPercent;
+                        confDiv.innerText = "Confidence: " + confPercent + (data.model_used ? " (" + data.model_used + ")" : "");
                     } else if (data.error) {
                         labelDiv.innerText = data.error;
                         labelDiv.className = "text-base font-medium mt-1 text-red-400";
@@ -101,29 +103,37 @@ def home():
     </html>
     """
 
-@app.post("/predict")
-def predict(data: PredictRequest):
+def query_hf_model(model_id: str, text: str):
+    url = f"https://router.huggingface.co/hf-inference/models/{model_id}"
     headers = {"Content-Type": "application/json"}
-    
     if HF_TOKEN:
         headers["Authorization"] = f"Bearer {HF_TOKEN}"
 
+    response = requests.post(
+        url,
+        headers=headers,
+        json={"inputs": text},
+        timeout=12
+    )
+    return response
+
+@app.post("/predict")
+def predict(data: PredictRequest):
+    if not HF_TOKEN:
+        return {
+            "error": "Configuration Error",
+            "details": "HF_TOKEN environment variable is missing on Vercel."
+        }
+
     try:
-        response = requests.post(
-            HF_MODEL_URL,
-            headers=headers,
-            json={"inputs": data.text},
-            timeout=15
-        )
+        # Try custom model first
+        response = query_hf_model(CUSTOM_MODEL, data.text)
+
+        # Fall back to base emotion model if custom model is not hosted/warm on HF
+        if response.status_code != 200:
+            response = query_hf_model(FALLBACK_MODEL, data.text)
 
         results = response.json()
-
-        # Handle model cold-start loading time on Hugging Face
-        if isinstance(results, dict) and "error" in results and "currently loading" in results["error"]:
-            return {
-                "error": "Model Warm-up",
-                "details": "Model is waking up on Hugging Face servers. Try again in 10-15 seconds."
-            }
 
         if response.status_code == 200:
             if isinstance(results, list) and len(results) > 0:
@@ -150,6 +160,6 @@ def predict(data: PredictRequest):
 
     except Exception as e:
         return {
-            "error": "Backend Exception",
+            "error": "Backend exception",
             "details": str(e)
         }
