@@ -16,6 +16,8 @@ def load_model():
         if not os.path.exists(local_path):
             url = f"https://huggingface.co/{REPO_ID}/resolve/main/{filename}"
             r = requests.get(url, headers=headers, stream=True)
+            if r.status_code != 200:
+                st.error(f"Failed on {filename}: status {r.status_code} — {r.text[:300]}")
             r.raise_for_status()
             with open(local_path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
