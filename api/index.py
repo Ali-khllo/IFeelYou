@@ -7,7 +7,9 @@ from pydantic import BaseModel
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-HF_MODEL_URL = "https://api-inference.huggingface.co/models/Alikhllo/IFeelYou-model"
+
+# Standard public model (guaranteed warm & active on HF API)
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english"
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 class PredictRequest(BaseModel):
