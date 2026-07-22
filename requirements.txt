@@ -2,3 +2,4 @@ streamlit
 transformers
 huggingface_hub
 torch
+streamlit-lottie
