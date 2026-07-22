@@ -1,19 +1,26 @@
 import os
-os.environ["HF_HUB_DISABLE_XET"] = "1"
-
+import requests
 import streamlit as st
-from huggingface_hub import snapshot_download
 
 MODEL_DIR = "model"
+REPO_ID = "Alikhllo/IFeelYou-model"
+FILES = ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.txt"]
 
 @st.cache_resource
 def load_model():
-    if not os.path.exists(os.path.join(MODEL_DIR, "model.safetensors")):
-        snapshot_download(
-            repo_id="Alikhllo/IFeelYou-model",
-            local_dir=MODEL_DIR,
-            token=st.secrets["HF_TOKEN"],
-        )
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
+
+    for filename in FILES:
+        local_path = os.path.join(MODEL_DIR, filename)
+        if not os.path.exists(local_path):
+            url = f"https://huggingface.co/{REPO_ID}/resolve/main/{filename}"
+            r = requests.get(url, headers=headers, stream=True)
+            r.raise_for_status()
+            with open(local_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
