@@ -4,9 +4,9 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-app = FastAPI(title="IFeelYou Emotion AI")
+app = FastAPI(title="IFeelYou Custom Emotion AI")
 
-# Your own fine-tuned emotion detection model
+# Your custom model
 MODEL_ID = "Alikhllo/IFeelYou-model"
 HF_MODEL_URL = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
@@ -22,20 +22,20 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>IFeelYou - Emotion AI</title>
+        <title>IFeelYou - Custom Model</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
         <div class="max-w-md w-full bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-700">
             <h1 class="text-2xl font-bold mb-2 text-center text-indigo-400">IFeelYou Emotion AI</h1>
-            <p class="text-gray-400 text-sm mb-6 text-center">Detect real-time emotions (Joy, Sadness, Anger, Fear, Love, Surprise)</p>
-
+            <p class="text-gray-400 text-sm mb-6 text-center">Powered by Alikhllo/IFeelYou-model</p>
+            
             <textarea id="inputText" rows="4" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4" placeholder="Type something here..."></textarea>
-
+            
             <button id="btn" onclick="analyzeSentiment()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition duration-200">
                 Analyze Emotion
             </button>
-
+            
             <div id="result" class="mt-6 hidden p-4 rounded-lg bg-gray-900 border border-gray-700">
                 <p class="text-xs text-gray-400">Result:</p>
                 <div id="label" class="text-xl font-bold mt-1"></div>
@@ -66,19 +66,12 @@ def home():
                         body: JSON.stringify({ text })
                     });
                     const data = await res.json();
-
+                    
                     if (data.label) {
                         const labelText = data.label.toUpperCase();
                         labelDiv.innerText = "Emotion: " + labelText;
-
-                        if (labelText.includes("JOY") || labelText.includes("HAPPY") || labelText.includes("LOVE")) {
-                            labelDiv.className = "text-xl font-bold mt-1 text-green-400";
-                        } else if (labelText.includes("ANGER") || labelText.includes("SAD")) {
-                            labelDiv.className = "text-xl font-bold mt-1 text-red-400";
-                        } else {
-                            labelDiv.className = "text-xl font-bold mt-1 text-indigo-400";
-                        }
-
+                        labelDiv.className = "text-xl font-bold mt-1 text-indigo-400";
+                        
                         const confPercent = data.confidence ? (data.confidence * 100).toFixed(2) + "%" : "N/A";
                         confDiv.innerText = "Confidence: " + confPercent;
                     } else if (data.error) {
@@ -112,7 +105,7 @@ def predict(data: PredictRequest):
             HF_MODEL_URL,
             headers=headers,
             json={"inputs": data.text},
-            timeout=12
+            timeout=15
         )
 
         results = response.json()
