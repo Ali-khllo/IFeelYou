@@ -1,4 +1,6 @@
 import os
+os.environ["HF_HUB_DISABLE_XET"] = "1"
+
 import streamlit as st
 from huggingface_hub import snapshot_download
 
