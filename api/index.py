@@ -1,15 +1,24 @@
 import os
-import requests
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from transformers import pipeline
 
-app = FastAPI(title="IFeelYou Sentiment API")
+app = FastAPI(title="IFeelYou Emotion API")
 
-# Point to your custom emotion detection model
 MODEL_ID = "Alikhllo/IFeelYou-model"
-HF_MODEL_URL = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
+
+# Initialize pipeline locally in the app
+try:
+    classifier = pipeline(
+        "text-classification",
+        model=MODEL_ID,
+        token=HF_TOKEN if HF_TOKEN else None
+    )
+except Exception as e:
+    classifier = None
+    print(f"Error loading model: {e}")
 
 class PredictRequest(BaseModel):
     text: str
@@ -71,7 +80,6 @@ def home():
                         const labelText = data.label.toUpperCase();
                         labelDiv.innerText = "Emotion: " + labelText;
                         
-                        // Dynamic styling based on emotion
                         if (labelText.includes("HAPPY") || labelText.includes("JOY")) {
                             labelDiv.className = "text-xl font-bold mt-1 text-green-400";
                         } else if (labelText.includes("ANGER") || labelText.includes("SAD")) {
@@ -104,55 +112,22 @@ def home():
 
 @app.post("/predict")
 def predict(data: PredictRequest):
-    headers = {"Content-Type": "application/json"}
-    
-    if HF_TOKEN:
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
-    else:
+    if not classifier:
         return {
-            "error": "Configuration Error",
-            "details": "HF_TOKEN environment variable is missing."
+            "error": "Model Error",
+            "details": "Model failed to initialize or load from Hugging Face."
         }
 
     try:
-        response = requests.post(
-            HF_MODEL_URL,
-            headers=headers,
-            json={"inputs": data.text},
-            timeout=12
-        )
-
-        content_type = response.headers.get("Content-Type", "")
-        if "application/json" not in content_type:
+        results = classifier(data.text)
+        if isinstance(results, list) and len(results) > 0:
+            top_result = results[0]
             return {
-                "error": f"Hugging Face Status {response.status_code}",
-                "details": response.text[:150]
+                "text": data.text,
+                "label": top_result.get("label"),
+                "confidence": top_result.get("score")
             }
-
-        results = response.json()
-
-        if response.status_code == 200:
-            if isinstance(results, list) and len(results) > 0:
-                item = results[0]
-                if isinstance(item, list) and len(item) > 0:
-                    top_result = item[0]
-                    return {
-                        "text": data.text,
-                        "label": top_result.get("label"),
-                        "confidence": top_result.get("score")
-                    }
-                elif isinstance(item, dict) and "label" in item:
-                    return {
-                        "text": data.text,
-                        "label": item.get("label"),
-                        "confidence": item.get("score")
-                    }
-            return {"text": data.text, "raw_output": results}
-
-        return {
-            "error": f"Hugging Face Error ({response.status_code})",
-            "details": str(results)
-        }
+        return {"text": data.text, "raw_output": str(results)}
 
     except Exception as e:
         return {
