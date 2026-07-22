@@ -128,6 +128,10 @@ text = st.text_area("Your text:")
 if st.button("Analyze"):
     if text.strip():
         import torch
+        
+        # Trigger an animation while processing
+        st.toast("Analyzing emotions...", icon="✨")
+
         inputs = tokenizer(text, return_tensors="pt", truncation=True)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -136,14 +140,14 @@ if st.button("Analyze"):
         top_idx = probs.argmax().item()
         emotion = labels[top_idx].lower()
 
-        st.success(f"Predicted emotion: **{emotion}** ({probs[top_idx]*100:.1f}% confidence)")
+        # Trigger festive animations based on emotion
+        if emotion in ["joy", "surprise"]:
+            st.balloons()
+        elif emotion in ["sadness", "fear"]:
+            st.snow()
 
-        st.write("All scores:")
-        for i, p in enumerate(probs):
-            st.write(f"{labels[i]}: {p*100:.1f}%")
-
-        st.divider()
-        st.subheader("💬 Suggested response")
+        # --- 1. SUGGESTED RESPONSE ON TOP ---
+        st.subheader("💬 Suggested Response")
         if emotion in RESPONSES:
             suggestion = random.choice(RESPONSES[emotion])
             st.info(suggestion)
@@ -151,5 +155,22 @@ if st.button("Analyze"):
                 st.info(random.choice(RESPONSES[emotion]))
         else:
             st.write("No template available for this emotion yet.")
+
+        st.divider()
+
+        # --- 2. PREDICTED EMOTION & CONFIDENCE ---
+        st.success(f"Predicted emotion: **{emotion.upper()}** ({probs[top_idx]*100:.1f}% confidence)")
+
+        # --- 3. TOP 3 SCORES ONLY ---
+        st.write("### Top 3 Scores:")
+        
+        # Combine labels and probabilities, then sort by highest score
+        scores = [(labels[i], probs[i].item()) for i in range(len(probs))]
+        top_3_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
+
+        for label, score in top_3_scores:
+            st.write(f"**{label.capitalize()}**: {score * 100:.1f}%")
+            st.progress(score)  # Visual animated progress bar for scores
+
     else:
         st.warning("Please enter some text first.")
