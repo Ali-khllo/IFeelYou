@@ -1,14 +1,18 @@
 import os
-import requests
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from huggingface_hub import InferenceClient
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-# Updated 2026 Hugging Face Router Endpoint
-HF_MODEL_URL = "https://router.huggingface.co/hf-inference/models/distilbert-base-uncased-finetuned-sst-2-english"
+# Hugging Face Access Token & Model Configuration
 HF_TOKEN = os.getenv("HF_TOKEN", "")
+# Using pre-warmed public sentiment model
+MODEL_ID = "distilbert/distilbert-base-uncased-finetuned-sst-2-english"
+
+# Initialize Hugging Face Inference Client
+client = InferenceClient(api_key=HF_TOKEN if HF_TOKEN else None)
 
 class PredictRequest(BaseModel):
     text: str
@@ -96,42 +100,23 @@ def home():
 
 @app.post("/predict")
 def predict(data: PredictRequest):
-    headers = {"Content-Type": "application/json"}
-    if HF_TOKEN:
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
-
     try:
-        response = requests.post(
-            HF_MODEL_URL,
-            headers=headers,
-            json={"inputs": data.text},
-            timeout=15
-        )
+        # Use task-specific inference method
+        results = client.text_classification(text=data.text, model=MODEL_ID)
         
-        results = response.json()
-
-        if response.status_code == 200:
-            if isinstance(results, list) and len(results) > 0:
-                item = results[0]
-                if isinstance(item, list) and len(item) > 0:
-                    top_result = item[0]
-                    return {
-                        "text": data.text,
-                        "label": top_result.get("label"),
-                        "confidence": top_result.get("score")
-                    }
-                elif isinstance(item, dict) and "label" in item:
-                    return {
-                        "text": data.text,
-                        "label": item.get("label"),
-                        "confidence": item.get("score")
-                    }
-            return {"text": data.text, "raw_output": results}
-        
-        return {
-            "error": f"Hugging Face API ({response.status_code})",
-            "details": str(results)
-        }
+        if isinstance(results, list) and len(results) > 0:
+            top_result = results[0]
+            # Handle object or dict output safely
+            label = getattr(top_result, "label", None) or top_result.get("label")
+            score = getattr(top_result, "score", None) or top_result.get("score")
+            
+            return {
+                "text": data.text,
+                "label": label,
+                "confidence": score
+            }
+            
+        return {"text": data.text, "raw_output": str(results)}
 
     except Exception as e:
         return {
