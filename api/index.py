@@ -6,9 +6,12 @@ from pydantic import BaseModel
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-# Public Inference URL
-HF_MODEL_URL = "https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english"
-HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
+# Standard HF Serverless Inference URL
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english"
+
+# Read HF_TOKEN safely
+raw_token = os.getenv("HF_TOKEN", "")
+HF_TOKEN = raw_token.strip() if raw_token else ""
 
 class PredictRequest(BaseModel):
     text: str
@@ -98,8 +101,8 @@ def home():
 def predict(data: PredictRequest):
     headers = {"Content-Type": "application/json"}
     
-    # Only attach Authorization header if HF_TOKEN is non-empty and valid
-    if HF_TOKEN and len(HF_TOKEN) > 5:
+    # Only attach Authorization if a token is present
+    if HF_TOKEN and len(HF_TOKEN) > 10:
         headers["Authorization"] = f"Bearer {HF_TOKEN}"
 
     try:
@@ -107,14 +110,14 @@ def predict(data: PredictRequest):
             HF_MODEL_URL,
             headers=headers,
             json={"inputs": data.text},
-            timeout=10
+            timeout=12
         )
 
         content_type = response.headers.get("Content-Type", "")
         if "application/json" not in content_type:
             return {
                 "error": f"Hugging Face returned status {response.status_code}",
-                "details": response.text[:200]
+                "details": "Invalid authorization token or missing API access." if response.status_code == 401 else response.text[:150]
             }
 
         results = response.json()
