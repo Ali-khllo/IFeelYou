@@ -4,7 +4,7 @@ import streamlit as st
 
 MODEL_DIR = "model"
 REPO_ID = "Alikhllo/IFeelYou-model"
-FILES = ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.txt"]
+FILES = ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json"]
 
 @st.cache_resource
 def load_model():
