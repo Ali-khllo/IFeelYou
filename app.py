@@ -121,41 +121,6 @@ RESPONSES = {
     ],
 }
 
-ILHAM_QUOTES = {
-    "joy": [
-        "Pak Ilham says: 'A+ energy right here! Keep that positive momentum going!' 🌟",
-        "Pak Ilham says: 'This code runs with 0 bugs and 100% good vibes!' 🚀",
-        "Pak Ilham says: 'Seeing this level of enthusiasm makes teaching totally worth it!' 😊"
-    ],
-    "sadness": [
-        "Pak Ilham says: 'Even the best algorithms hit edge cases. Take a warm drink break, you're doing great!' ☕",
-        "Pak Ilham says: 'Debugging life takes patience. Be kind to yourself today!' 💙",
-        "Pak Ilham says: 'Don't worry, every error log is just a stepping stone to a clean build.' 🌱"
-    ],
-    "anger": [
-        "Pak Ilham says: 'Deep breaths! Step away from the keyboard for 5 minutes — solutions pop up when you relax!' 🧘‍♂️",
-        "Pak Ilham says: 'Frustration is curiosity in disguise. Let's break the problem down into smaller functions!' 💡",
-        "Pak Ilham says: 'Channel that fiery energy into writing an incredible piece of code!' 🔥"
-    ],
-    "fear": [
-        "Pak Ilham says: 'Uncertainty is just an unexplored branch in your logic tree. You've got this!' 🛡️",
-        "Pak Ilham says: 'No stress! Even senior devs consult docs daily. Step by step!' 📚",
-        "Pak Ilham says: 'Take a slow breath. You are much more capable than you give yourself credit for!' ✨"
-    ],
-    "surprise": [
-        "Pak Ilham says: 'Plot twist! That's the beauty of unpredictable data — full of surprises!' ⚡",
-        "Pak Ilham says: 'An unexpected output! Let's inspect the variables and enjoy the discovery!' 🔍"
-    ],
-    "disgust": [
-        "Pak Ilham says: 'Ugh, tough situations are rough! Let's refactor and start fresh!' 🧹",
-        "Pak Ilham says: 'Totally fair reaction. Shake it off, take a breath, and let's clear the queue!' ✨"
-    ],
-    "neutral": [
-        "Pak Ilham says: 'Smooth, steady, and balanced — ready for whatever prompt comes next!' 🎯",
-        "Pak Ilham says: 'Clear and concise! Perfect baseline for further exploration.' 💻"
-    ]
-}
-
 EMOTION_THEMES = {
     "joy": {"color": "#FFD700", "bg": "#FFFBEB", "icon": "🎉", "bar": "#FFB800"},
     "sadness": {"color": "#1E90FF", "bg": "#F0F8FF", "icon": "🌧️", "bar": "#1E90FF"},
@@ -171,19 +136,11 @@ st.markdown("""
 <style>
     .mobile-header {
         text-align: center;
-        padding: 10px;
+        padding: 12px;
         border-radius: 16px;
         background: linear-gradient(135deg, #6C63FF, #FF6584);
         color: white;
         margin-bottom: 20px;
-    }
-    .ilham-card {
-        padding: 16px;
-        border-radius: 16px;
-        background-color: #F3F4F6;
-        border-left: 6px solid #6C63FF;
-        margin-top: 15px;
-        font-style: italic;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -222,7 +179,7 @@ if st.button("✨ Analyze Emotion", use_container_width=True):
         st.session_state.top_idx = top_idx
         st.session_state.analysis_complete = True
 
-        # TRIGGER UNIQUE ANIMATION FOR EVERY EMOTION
+        # TRIGGER UNIQUE ANIMATIONS PER EMOTION
         if emotion == "joy":
             st.balloons()
             st.toast("Celebrating your joy! 🎉", icon="🎉")
@@ -230,7 +187,7 @@ if st.button("✨ Analyze Emotion", use_container_width=True):
             st.snow()
             st.toast("Sending warmth your way... 🌧️", icon="🌧️")
         elif emotion == "anger":
-            st.toast("Deep breath... releasing the tension 🔥", icon="🔥")
+            st.toast("Deep breath... releasing tension 🔥", icon="🔥")
         elif emotion == "fear":
             st.snow()
             st.toast("You are safe and supported 🛡️", icon="🛡️")
@@ -244,7 +201,7 @@ if st.button("✨ Analyze Emotion", use_container_width=True):
     else:
         st.warning("Please enter some text first.")
 
-# --- MOBILE RESPONSIVE DISPLAY FLOW ---
+# --- MOBILE DISPLAY FLOW ---
 if st.session_state.analysis_complete:
     st.divider()
     
@@ -262,28 +219,18 @@ if st.session_state.analysis_complete:
         unsafe_allow_html=True
     )
 
+    st.write("")
+
     # 2. Suggested Response Section
     st.markdown("### 💬 Suggested Response")
     if predicted_emotion in RESPONSES:
         suggestion = random.choice(RESPONSES[predicted_emotion])
         st.info(suggestion)
-        st.button("🔄 Another Suggestion", use_container_width=True)
+        st.button("🔄 Show Another Suggestion", use_container_width=True)
     else:
         st.write("No template available for this emotion yet.")
 
-    # 3. Pak Ilham's Cute Quote Card
-    ilham_quote = random.choice(ILHAM_QUOTES.get(predicted_emotion, ["Pak Ilham says: 'Keep up the great work!' ✨"]))
-    st.markdown(
-        f"""
-        <div class="ilham-card">
-            <strong>🎓 Pak Ilham's Take:</strong><br>
-            "{ilham_quote.replace('Pak Ilham says: ', '')}"
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # 4. Top 3 Confidence Chart
+    # 3. Top 3 Confidence Chart
     st.markdown("---")
     st.markdown("### 📊 Top 3 Detected Emotions")
     
