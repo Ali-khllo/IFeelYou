@@ -2,6 +2,10 @@ import os
 import random
 import requests
 import streamlit as st
+from streamlit_lottie import st_lottie
+
+# Page setup for cinematic widescreen
+st.set_page_config(page_title="IFeelYou — Cinema Mode", page_icon="🎬", layout="wide")
 
 MODEL_DIR = "model"
 REPO_ID = "Alikhllo/IFeelYou-model"
@@ -29,6 +33,38 @@ def load_model():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
     return model, tokenizer
 
+# Helper function to load Lottie animations via URL
+@st.cache_data
+def load_lottieurl(url: str):
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        return None
+    return None
+
+# Cinematic Lottie assets mapping
+LOTTIE_URLS = {
+    "joy": "https://assets10.lottiefiles.com/packages/lf20_jbrw3hcz.json",
+    "sadness": "https://assets9.lottiefiles.com/packages/lf20_96bov9lh.json",
+    "anger": "https://assets8.lottiefiles.com/packages/lf20_tlf381fe.json",
+    "fear": "https://assets3.lottiefiles.com/packages/lf20_kx22x0w0.json",
+    "surprise": "https://assets4.lottiefiles.com/packages/lf20_8eb44f9c.json",
+    "disgust": "https://assets5.lottiefiles.com/packages/lf20_9w8wpxie.json",
+    "neutral": "https://assets2.lottiefiles.com/packages/lf20_mDnmhAgZkb.json"
+}
+
+# Color palettes for cinematic feel
+EMOTION_THEMES = {
+    "joy": {"color": "#FFD700", "bg": "rgba(255, 215, 0, 0.1)", "glow": "#FFA500"},
+    "sadness": {"color": "#4682B4", "bg": "rgba(70, 130, 180, 0.1)", "glow": "#1E90FF"},
+    "anger": {"color": "#FF4500", "bg": "rgba(255, 69, 0, 0.15)", "glow": "#FF0000"},
+    "fear": {"color": "#9370DB", "bg": "rgba(147, 112, 219, 0.1)", "glow": "#8A2BE2"},
+    "surprise": {"color": "#FF007F", "bg": "rgba(255, 0, 127, 0.15)", "glow": "#FF1493"},
+    "disgust": {"color": "#3CB371", "bg": "rgba(60, 179, 113, 0.1)", "glow": "#2E8B57"},
+    "neutral": {"color": "#E0E0E0", "bg": "rgba(220, 220, 220, 0.05)", "glow": "#A9A9A9"}
+}
 
 RESPONSES = {
     "anger": [
@@ -118,24 +154,51 @@ RESPONSES = {
 }
 
 EMOTION_ICONS = {
-    "joy": "🎉",
+    "joy": "🌟",
     "sadness": "🌧️",
     "anger": "🔥",
     "fear": "🛡️",
     "surprise": "⚡",
     "disgust": "🤢",
-    "neutral": "💬",
+    "neutral": "🎬",
 }
 
-st.title("IFeelYou — Emotion Detector")
-st.write("Enter some text and I'll tell you what emotion it expresses — and suggest how to respond.")
+# Apply custom dark cinema CSS
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    .cinema-card {
+        padding: 24px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: all 0.5s ease-in-out;
+    }
+    .movie-title {
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(90deg, #ff4b4b, #ff8c00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        letter-spacing: 2px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-with st.spinner("Loading model..."):
+st.markdown("<h1 class='movie-title'>🎬 IFeelYou — Emotional Cinema</h1>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: #888;'>Script your thoughts. Watch the scene shift in real time.</p>", unsafe_allow_html=True)
+
+with st.spinner("Preparing the cinema projector..."):
     model, tokenizer = load_model()
 
-text = st.text_area("Your text:")
+text = st.text_area("Your Script Line / Thought:", placeholder="Type your story line here...")
 
-# Helper function to pick a response without repeating the exact same one immediately
 def get_random_response(emotion_label):
     options = RESPONSES.get(emotion_label, [])
     if not options:
@@ -144,7 +207,7 @@ def get_random_response(emotion_label):
     available = [res for res in options if res != current] or options
     return random.choice(available)
 
-if st.button("Analyze"):
+if st.button("🎬 Analyze Scene"):
     if text.strip():
         import torch
 
@@ -156,7 +219,6 @@ if st.button("Analyze"):
         top_idx = probs.argmax().item()
         emotion = labels[top_idx].lower()
 
-        # Save results in session state so re-runs (like clicking refresh) preserve state
         st.session_state["analyzed"] = True
         st.session_state["emotion"] = emotion
         st.session_state["probs"] = probs.tolist()
@@ -164,58 +226,77 @@ if st.button("Analyze"):
         st.session_state["top_idx"] = top_idx
         st.session_state["current_suggestion"] = get_random_response(emotion)
 
-        # Trigger dynamic animations
         if emotion == "joy":
             st.balloons()
-            st.toast("Celebrating your joy! 🎉", icon="🎉")
+            st.toast("Scene Mood: Pure Joy! 🎉", icon="🎉")
         elif emotion == "sadness":
             st.snow()
-            st.toast("Sending warmth your way... 🌧️", icon="🌧️")
+            st.toast("Scene Mood: Melancholy... 🌧️", icon="🌧️")
         elif emotion == "anger":
-            st.toast("Deep breath... releasing the tension 🔥", icon="🔥")
+            st.toast("Scene Mood: High Tension 🔥", icon="🔥")
         elif emotion == "fear":
             st.snow()
-            st.toast("You are safe and supported 🛡️", icon="🛡️")
+            st.toast("Scene Mood: Thriller Suspense 🛡️", icon="🛡️")
         elif emotion == "surprise":
             st.balloons()
-            st.toast("Whoa! What a twist! ⚡", icon="⚡")
-        elif emotion == "disgust":
-            st.toast("Ugh, totally understandable reaction 🤢", icon="🤢")
+            st.toast("Scene Mood: Plot Twist! ⚡", icon="⚡")
         else:
-            st.toast("Got it, steady and balanced ✨", icon="💬")
+            st.toast("Scene Mood: Calm Dialogue ✨", icon="💬")
     else:
-        st.warning("Please enter some text first.")
+        st.warning("Please enter your script line first.")
         st.session_state["analyzed"] = False
 
-# Render results whenever an analysis exists in state
+# Render Cinema Results
 if st.session_state.get("analyzed", False):
     emotion = st.session_state["emotion"]
     probs = st.session_state["probs"]
     labels = st.session_state["labels"]
     top_idx = st.session_state["top_idx"]
-    icon = EMOTION_ICONS.get(emotion, "💬")
+    theme = EMOTION_THEMES.get(emotion, EMOTION_THEMES["neutral"])
+    icon = EMOTION_ICONS.get(emotion, "🎬")
 
-    # --- 1. SUGGESTED RESPONSE ON TOP ---
-    st.subheader(f"{icon} Suggested Response")
-    st.info(st.session_state["current_suggestion"])
+    # Layout into 2 columns: Left = Lottie Movie Scene, Right = Suggested Response
+    col1, col2 = st.columns([1, 1.5], gap="large")
 
-    # Refresh button picks a new string from the SAME emotion list
-    if st.button("🔄 Show another suggestion"):
-        st.session_state["current_suggestion"] = get_random_response(emotion)
-        st.rerun()
+    with col1:
+        st.markdown(f"### {icon} Scene Mood: **{emotion.upper()}**")
+        lottie_json = load_lottieurl(LOTTIE_URLS.get(emotion, LOTTIE_URLS["neutral"]))
+        if lottie_json:
+            st_lottie(lottie_json, height=220, key=f"lottie_{emotion}")
+        else:
+            st.write(f"*(Animation active for {emotion})*")
+
+    with col2:
+        # Dynamic theme container
+        st.markdown(
+            f"""
+            <div class="cinema-card" style="background: {theme['bg']}; border: 2px solid {theme['color']};">
+                <h3 style="color: {theme['color']}; margin-top: 0;">💬 Director's Response Line</h3>
+                <p style="font-size: 1.25rem; line-height: 1.5; font-weight: 500;">"{st.session_state['current_suggestion']}"</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if st.button("🔄 Take 2 (Show Another Response)"):
+            st.session_state["current_suggestion"] = get_random_response(emotion)
+            st.rerun()
 
     st.divider()
 
-    # --- 2. PREDICTED EMOTION & CONFIDENCE ---
-    st.success(f"Predicted emotion: **{emotion.upper()}** {icon} ({probs[top_idx]*100:.1f}% confidence)")
-
-    # --- 3. TOP 3 SCORES ONLY ---
-    st.write("### Top 3 Detected Emotions:")
+    # --- TOP 3 SCORES WITH GLOWING THEME BARS ---
+    st.write("### 🍿 Top 3 Scene Scores")
     scores = [(labels[str(i) if isinstance(labels, dict) and str(i) in labels else i], probs[i]) for i in range(len(probs))]
     top_3_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
 
     for label, score in top_3_scores:
         lbl_lower = label.lower()
         lbl_icon = EMOTION_ICONS.get(lbl_lower, "📊")
-        st.write(f"**{lbl_icon} {label.capitalize()}**: {score * 100:.1f}%")
-        st.progress(score)
+        lbl_theme = EMOTION_THEMES.get(lbl_lower, EMOTION_THEMES["neutral"])
+
+        col_a, col_b = st.columns([1, 4])
+        with col_a:
+            st.markdown(f"<span style='color: {lbl_theme['color']}; font-weight: bold;'>{lbl_icon} {label.capitalize()}</span>", unsafe_allow_html=True)
+            st.write(f"**{score * 100:.1f}%**")
+        with col_b:
+            st.progress(score)
