@@ -1,6 +1,4 @@
 fastapi
 uvicorn
-onnxruntime
-transformers
-numpy
-huggingface_hub
+requests
+pydantic

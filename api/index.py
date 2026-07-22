@@ -1,24 +1,13 @@
 import os
-import numpy as np
-import onnxruntime as ort
-from fastapi import FastAPI
+import requests
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from transformers import AutoTokenizer
-from huggingface_hub import hf_hub_download
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-HF_REPO_ID = "Alikhllo/IFeelYou-model"
-
-# Download ONNX model files from HF Hub into temp storage on function start
-model_path = hf_hub_download(repo_id=HF_REPO_ID, filename="model.onnx")
-try:
-    hf_hub_download(repo_id=HF_REPO_ID, filename="model.onnx.data")
-except Exception:
-    pass
-
-tokenizer = AutoTokenizer.from_pretrained(HF_REPO_ID)
-session = ort.InferenceSession(model_path)
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/Alikhllo/IFeelYou-model"
+# Optional: Set HF_TOKEN in Vercel Environment Variables if repo is private
+HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 class PredictRequest(BaseModel):
     text: str
@@ -29,26 +18,34 @@ def home():
 
 @app.post("/predict")
 def predict(data: PredictRequest):
-    inputs = tokenizer(data.text, return_tensors="np", truncation=True, padding=True)
-    
-    ort_inputs = {
-        "input_ids": inputs["input_ids"].astype(np.int64),
-        "attention_mask": inputs["attention_mask"].astype(np.int64),
-    }
+    headers = {}
+    if HF_TOKEN:
+        headers["Authorization"] = f"Bearer {HF_TOKEN}"
 
-    logits = session.run(None, ort_inputs)[0]
-    
-    exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
-    probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-    
-    predicted_class = int(np.argmax(probs, axis=-1)[0])
-    confidence = float(probs[0][predicted_class])
+    response = requests.post(
+        HF_MODEL_URL,
+        headers=headers,
+        json={"inputs": data.text},
+        timeout=10
+    )
 
-    id2label = getattr(tokenizer, "id2label", {0: "NEGATIVE", 1: "POSITIVE"})
-    label = id2label.get(predicted_class, f"LABEL_{predicted_class}")
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Hugging Face API error: {response.text}"
+        )
+
+    results = response.json()
     
-    return {
-        "text": data.text,
-        "label": label,
-        "confidence": confidence,
-    }
+    # HF Inference API returns list of candidate labels with scores
+    # e.g., [[{"label": "POSITIVE", "score": 0.98}, {"label": "NEGATIVE", "score": 0.02}]]
+    if isinstance(results, list) and len(results) > 0 and isinstance(results[0], list):
+        top_result = results[0][0]
+        return {
+            "text": data.text,
+            "label": top_result.get("label"),
+            "confidence": top_result.get("score"),
+            "raw_output": results[0]
+        }
+
+    return {"text": data.text, "result": results}
