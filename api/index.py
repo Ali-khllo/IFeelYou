@@ -1,5 +1,4 @@
 import os
-import time
 import requests
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -7,10 +6,8 @@ from pydantic import BaseModel
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-
-# Standard public model (guaranteed warm & active on HF API)
-
-HF_MODEL_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english"
+# Updated 2026 Hugging Face Router Endpoint
+HF_MODEL_URL = "https://router.huggingface.co/hf-inference/models/distilbert-base-uncased-finetuned-sst-2-english"
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 class PredictRequest(BaseModel):
@@ -41,7 +38,7 @@ def home():
             <div id="result" class="mt-6 hidden p-4 rounded-lg bg-gray-900 border border-gray-700">
                 <p class="text-xs text-gray-400">Result:</p>
                 <div id="label" class="text-xl font-bold mt-1"></div>
-                <div id="confidence" class="text-sm text-gray-400 mt-1"></div>
+                <div id="confidence" class="text-sm text-gray-400 mt-1 break-all"></div>
             </div>
         </div>
 
@@ -56,9 +53,9 @@ def home():
                 const btn = document.getElementById('btn');
 
                 resultDiv.classList.remove('hidden');
-                labelDiv.innerText = "Analyzing... (Warming up AI model)";
+                labelDiv.innerText = "Analyzing...";
                 labelDiv.className = "text-lg font-semibold mt-1 text-yellow-400";
-                confDiv.innerText = "This might take a few seconds on first request...";
+                confDiv.innerText = "";
                 btn.disabled = true;
 
                 try {
@@ -71,18 +68,18 @@ def home():
                     
                     if (data.label) {
                         labelDiv.innerText = "Label: " + data.label;
-                        labelDiv.className = data.label.toLowerCase().includes("pos") || data.label === "LABEL_1" 
+                        labelDiv.className = data.label.toLowerCase().includes("pos") || data.label === "POSITIVE" 
                             ? "text-xl font-bold mt-1 text-green-400" 
                             : "text-xl font-bold mt-1 text-red-400";
                         
                         const confPercent = data.confidence ? (data.confidence * 100).toFixed(2) + "%" : "N/A";
                         confDiv.innerText = "Confidence: " + confPercent;
                     } else if (data.error) {
-                        labelDiv.innerText = "Error: " + data.error;
+                        labelDiv.innerText = data.error;
                         labelDiv.className = "text-base font-medium mt-1 text-red-400";
                         confDiv.innerText = data.details || "";
                     } else {
-                        labelDiv.innerText = "Unexpected output format";
+                        labelDiv.innerText = "Output:";
                         confDiv.innerText = JSON.stringify(data);
                     }
                 } catch (err) {
@@ -99,55 +96,45 @@ def home():
 
 @app.post("/predict")
 def predict(data: PredictRequest):
-    headers = {}
+    headers = {"Content-Type": "application/json"}
     if HF_TOKEN:
         headers["Authorization"] = f"Bearer {HF_TOKEN}"
 
-    # Try calling HuggingFace up to 3 times to allow cold start
-    for attempt in range(3):
-        try:
-            response = requests.post(
-                HF_MODEL_URL,
-                headers=headers,
-                json={"inputs": data.text},
-                timeout=15
-            )
-            
-            if response.status_code == 200:
-                results = response.json()
-                
-                # Format 1: [[{"label": "POSITIVE", "score": 0.98}, ...]]
-                if isinstance(results, list) and len(results) > 0 and isinstance(results[0], list):
-                    top_result = results[0][0]
+    try:
+        response = requests.post(
+            HF_MODEL_URL,
+            headers=headers,
+            json={"inputs": data.text},
+            timeout=15
+        )
+        
+        results = response.json()
+
+        if response.status_code == 200:
+            if isinstance(results, list) and len(results) > 0:
+                item = results[0]
+                if isinstance(item, list) and len(item) > 0:
+                    top_result = item[0]
                     return {
                         "text": data.text,
                         "label": top_result.get("label"),
                         "confidence": top_result.get("score")
                     }
-                
-                # Format 2: [{"label": "POSITIVE", "score": 0.98}]
-                if isinstance(results, list) and len(results) > 0 and "label" in results[0]:
+                elif isinstance(item, dict) and "label" in item:
                     return {
                         "text": data.text,
-                        "label": results[0].get("label"),
-                        "confidence": results[0].get("score")
+                        "label": item.get("label"),
+                        "confidence": item.get("score")
                     }
-                
-                return {"text": data.text, "raw_output": results}
+            return {"text": data.text, "raw_output": results}
+        
+        return {
+            "error": f"Hugging Face API ({response.status_code})",
+            "details": str(results)
+        }
 
-            # If model is loading, wait and retry
-            elif response.status_code in [503, 530]:
-                time.sleep(4)
-                continue
-            else:
-                return {
-                    "error": f"Hugging Face API returned status {response.status_code}",
-                    "details": response.text
-                }
-        except Exception as e:
-            time.sleep(2)
-
-    return {
-        "error": "Model cold start timeout",
-        "details": "The Hugging Face model took too long to wake up. Please try clicking Analyze again!"
-    }
+    except Exception as e:
+        return {
+            "error": "Backend exception",
+            "details": str(e)
+        }
