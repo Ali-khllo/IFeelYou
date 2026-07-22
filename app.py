@@ -7,7 +7,7 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Make the app take up the full width of the screen for our dashboard layout
-st.set_page_config(page_title="IFeelYou — Emotion Detector", layout="wide", page_icon="🤖")
+st.set_page_config(page_title="IFeelYou", layout="wide")
 
 MODEL_DIR = "model"
 REPO_ID = "Alikhllo/IFeelYou-model"
@@ -121,42 +121,6 @@ RESPONSES = {
     ],
 }
 
-# Cute & encouraging commentary tailored for Pak Ilham
-ILHAM_QUOTES = {
-    "joy": [
-        "Pak Ilham says: 'A+ energy right here! Keep that positive momentum going into your next project!' 🌟",
-        "Pak Ilham says: 'This code runs with 0 bugs and 100% good vibes!' 🚀",
-        "Pak Ilham says: 'Seeing this level of enthusiasm makes teaching totally worth it!' 😊"
-    ],
-    "sadness": [
-        "Pak Ilham says: 'Even the best algorithms hit edge cases sometimes. Take a warm drink break, you're doing great!' ☕",
-        "Pak Ilham says: 'Debugging life takes patience. Be kind to yourself today!' 💙",
-        "Pak Ilham says: 'Don't worry, every error log is just a stepping stone to a clean build.' 🌱"
-    ],
-    "anger": [
-        "Pak Ilham says: 'Deep breaths! Step away from the keyboard for 5 minutes — solutions usually pop up when you relax!' 🧘‍♂️",
-        "Pak Ilham says: 'Frustration is just curiosity in disguise. Let's break the problem down into smaller functions!' 💡",
-        "Pak Ilham says: 'Channel that fiery energy into writing an incredible piece of code!' 🔥"
-    ],
-    "fear": [
-        "Pak Ilham says: 'Uncertainty is just an unexplored branch in your logic tree. You've got all the tools to solve this!' 🛡️",
-        "Pak Ilham says: 'No stress! Even senior devs consult docs daily. Step by step, you've got this!' 📚",
-        "Pak Ilham says: 'Take a slow breath. You are much more capable than you give yourself credit for!' ✨"
-    ],
-    "surprise": [
-        "Pak Ilham says: 'Plot twist! That's the beauty of unpredictable data — always full of surprises!' ⚡",
-        "Pak Ilham says: 'An unexpected output! Let's inspect the variables and enjoy the discovery!' 🔍"
-    ],
-    "disgust": [
-        "Pak Ilham says: 'Ugh, bad code smells and tough situations are rough! Let's refactor and start fresh!' 🧹",
-        "Pak Ilham says: 'Totally fair reaction. Shake it off, take a breath, and let's clear the queue!' ✨"
-    ],
-    "neutral": [
-        "Pak Ilham says: 'Smooth, steady, and balanced — ready for whatever prompt comes next!' 🎯",
-        "Pak Ilham says: 'Clear and concise! Perfect baseline for further exploration.' 💻"
-    ]
-}
-
 st.title("🤖 IFeelYou — Emotion Detector")
 st.write("Enter some text and I'll tell you what emotion it expresses — and suggest how to respond.")
 
@@ -164,6 +128,7 @@ with st.spinner("Loading model..."):
     model, tokenizer = load_model()
 
 # --- Initialize Session State ---
+# This ensures our AI results don't vanish when we click other buttons!
 if "analysis_complete" not in st.session_state:
     st.session_state.analysis_complete = False
 
@@ -184,7 +149,7 @@ if st.button("Analyze"):
         emotion = labels[top_idx].lower()
 
         # Save all results to session state
-        st.session_state.probs = probs.tolist()
+        st.session_state.probs = probs.tolist() # Convert tensor to list for safe storage
         st.session_state.labels = labels
         st.session_state.emotion = emotion
         st.session_state.top_idx = top_idx
@@ -199,6 +164,7 @@ if st.button("Analyze"):
         st.warning("Please enter some text first.")
 
 # --- Dashboard UI Layout ---
+# Only show the dashboard if we have completed an analysis
 if st.session_state.analysis_complete:
     st.divider()
     
@@ -216,29 +182,24 @@ if st.session_state.analysis_complete:
 
         st.write("**Suggested Response:**")
         if predicted_emotion in RESPONSES:
+            # We display a random choice, and the button below simply reruns the app to get a new one!
             suggestion = random.choice(RESPONSES[predicted_emotion])
             st.info(suggestion)
             
+            # Because we used session_state, clicking this won't erase the screen anymore!
             st.button("🔄 Show another suggestion") 
         else:
             st.write("No template available for this emotion yet.")
-
-        # --- Cute Pak Ilham Section ---
-        st.markdown("---")
-        st.subheader("💡 Pak Ilham's Wise & Cute Take")
-        ilham_quote = random.choice(ILHAM_QUOTES.get(predicted_emotion, ["Pak Ilham says: 'Keep up the great work!' ✨"]))
-        
-        # Displaying with a cute toast / highlight card
-        st.toast(ilham_quote, icon="🎓")
-        st.caption(f"_{ilham_quote}_")
 
     # RIGHT COLUMN: AI Analytics & Math
     with col2:
         st.subheader("🧠 Model Confidence Breakdown")
         
+        # Build a Pandas DataFrame to feed into the Streamlit Bar Chart
         chart_data = pd.DataFrame({
             "Emotion": [label.capitalize() for label in st.session_state.labels.values()],
             "Confidence (%)": [p * 100 for p in st.session_state.probs]
         }).set_index("Emotion")
         
+        # Display the beautiful interactive bar chart you requested
         st.bar_chart(chart_data, color="#6C63FF")
