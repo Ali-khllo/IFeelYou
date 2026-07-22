@@ -10,6 +10,7 @@ def load_model():
         snapshot_download(
             repo_id="Alikhllo/IFeelYou-model",
             local_dir=MODEL_DIR,
+            token=st.secrets["HF_TOKEN"],
         )
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
