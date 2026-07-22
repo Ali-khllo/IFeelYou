@@ -28,4 +28,28 @@ def load_model():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
     return model, tokenizer
 
-model, tokenizer = load_model()
+
+st.title("IFeelYou — Emotion Detector")
+st.write("Enter some text and I'll tell you what emotion it expresses.")
+
+with st.spinner("Loading model..."):
+    model, tokenizer = load_model()
+
+text = st.text_area("Your text:")
+
+if st.button("Analyze"):
+    if text.strip():
+        import torch
+        inputs = tokenizer(text, return_tensors="pt", truncation=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
+        labels = model.config.id2label
+        top_idx = probs.argmax().item()
+        st.success(f"Predicted emotion: **{labels[top_idx]}** ({probs[top_idx]*100:.1f}% confidence)")
+
+        st.write("All scores:")
+        for i, p in enumerate(probs):
+            st.write(f"{labels[i]}: {p*100:.1f}%")
+    else:
+        st.warning("Please enter some text first.")
