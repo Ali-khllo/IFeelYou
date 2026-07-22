@@ -1,52 +1,43 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 
-MODEL_DIR = "Ali-khllo/emotion-model"  # replace with your actual HF model repo name
+MODEL_DIR = "./model"
 
-app = FastAPI()
-
-# Allow your Vercel frontend to call this API.
-# Replace "*" with your actual Vercel domain once deployed, e.g. "https://your-app.vercel.app"
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="IFeelYou")
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
 model.eval()
 
-id2label = model.config.id2label
+# Update this to match the label order your model was trained with
+LABELS = ["sadness", "joy", "love", "anger", "fear", "surprise"]
 
 
-class TextIn(BaseModel):
+class TextInput(BaseModel):
     text: str
 
 
 @app.get("/")
-def health():
-    return {"status": "ok"}
+def root():
+    return {"status": "ok", "message": "IFeelYou API is running"}
 
 
 @app.post("/predict")
-def predict(payload: TextIn):
-    inputs = tokenizer(
-        payload.text,
-        return_tensors="pt",
-        truncation=True,
-        padding=True,
-        max_length=512,
-    )
+def predict(input: TextInput):
+    inputs = tokenizer(input.text, return_tensors="pt", truncation=True, padding=True)
     with torch.no_grad():
-        logits = model(**inputs).logits
-        probs = torch.softmax(logits, dim=-1)[0]
+        outputs = model(**inputs)
+        probs = torch.softmax(outputs.logits, dim=-1)[0]
 
-    scores = {id2label[i]: round(float(p), 4) for i, p in enumerate(probs)}
-    top_label = max(scores, key=scores.get)
-
-    return {"label": top_label, "scores": scores}
+    top_idx = int(torch.argmax(probs))
+    return {
+        "text": input.text,
+        "emotion": LABELS[top_idx] if top_idx < len(LABELS) else str(top_idx),
+        "confidence": round(float(probs[top_idx]), 4),
+        "all_scores": {
+            LABELS[i] if i < len(LABELS) else str(i): round(float(p), 4)
+            for i, p in enumerate(probs)
+        },
+    }
