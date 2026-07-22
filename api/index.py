@@ -1,19 +1,14 @@
 import os
+import requests
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from huggingface_hub import InferenceClient
 
 app = FastAPI(title="IFeelYou Sentiment API")
 
-# Hugging Face Access Token & Model Configuration
+# Public Inference URL
+HF_MODEL_URL = "https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english"
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
-
-# Base pre-warmed model (Change to "Alikhllo/IFeelYou-model" if you want your custom model)
-MODEL_ID = "distilbert/distilbert-base-uncased-finetuned-sst-2-english"
-
-# Initialize Hugging Face Inference Client
-client = InferenceClient(api_key=HF_TOKEN if HF_TOKEN else None)
 
 class PredictRequest(BaseModel):
     text: str
@@ -101,22 +96,51 @@ def home():
 
 @app.post("/predict")
 def predict(data: PredictRequest):
+    headers = {"Content-Type": "application/json"}
+    
+    # Only attach Authorization header if HF_TOKEN is non-empty and valid
+    if HF_TOKEN and len(HF_TOKEN) > 5:
+        headers["Authorization"] = f"Bearer {HF_TOKEN}"
+
     try:
-        # Request classification via huggingface_hub client
-        results = client.text_classification(text=data.text, model=MODEL_ID)
-        
-        if isinstance(results, list) and len(results) > 0:
-            top_result = results[0]
-            label = getattr(top_result, "label", None) or (top_result.get("label") if isinstance(top_result, dict) else None)
-            score = getattr(top_result, "score", None) or (top_result.get("score") if isinstance(top_result, dict) else None)
-            
+        response = requests.post(
+            HF_MODEL_URL,
+            headers=headers,
+            json={"inputs": data.text},
+            timeout=10
+        )
+
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
             return {
-                "text": data.text,
-                "label": label,
-                "confidence": score
+                "error": f"Hugging Face returned status {response.status_code}",
+                "details": response.text[:200]
             }
-            
-        return {"text": data.text, "raw_output": str(results)}
+
+        results = response.json()
+
+        if response.status_code == 200:
+            if isinstance(results, list) and len(results) > 0:
+                item = results[0]
+                if isinstance(item, list) and len(item) > 0:
+                    top_result = item[0]
+                    return {
+                        "text": data.text,
+                        "label": top_result.get("label"),
+                        "confidence": top_result.get("score")
+                    }
+                elif isinstance(item, dict) and "label" in item:
+                    return {
+                        "text": data.text,
+                        "label": item.get("label"),
+                        "confidence": item.get("score")
+                    }
+            return {"text": data.text, "raw_output": results}
+
+        return {
+            "error": f"Hugging Face Error ({response.status_code})",
+            "details": str(results)
+        }
 
     except Exception as e:
         return {
