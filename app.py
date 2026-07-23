@@ -284,6 +284,28 @@ st.markdown("""
         background-repeat: no-repeat;
         animation: fillBar 0.9s ease forwards, shimmer 1.6s linear infinite 0.9s;
     }
+
+    /* Force readable dark text regardless of Streamlit's light/dark theme setting.
+       No !important here on purpose: elements with their own inline color
+       (mobile-header, result-card) keep winning since inline beats class rules. */
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    .stTextArea label,
+    .stMarkdown, .stMarkdown p {
+        color: #3D3558;
+    }
+
+    .mini-row, .mini-row * {
+        color: #3D3558;
+    }
+
+    hr, [data-testid="stDivider"] {
+        border-color: rgba(138, 125, 255, 0.35) !important;
+    }
 </style>
 
 <div class="blob blob-a"></div>
