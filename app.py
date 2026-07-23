@@ -134,21 +134,167 @@ EMOTION_THEMES = {
 # Custom Mobile Styling
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700&display=swap');
+
+    html, body, [class*="css"] { font-family: 'Nunito', sans-serif; }
+
+    .stApp {
+        background: radial-gradient(circle at 15% 10%, #FFE3EE 0%, transparent 45%),
+                    radial-gradient(circle at 85% 15%, #E4E7FF 0%, transparent 40%),
+                    radial-gradient(circle at 20% 90%, #E1FFF0 0%, transparent 40%),
+                    #FBF9FF;
+    }
+
+    /* floating background blobs */
+    .blob {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(2px);
+        opacity: 0.35;
+        z-index: 0;
+        pointer-events: none;
+        animation: drift 14s ease-in-out infinite;
+    }
+    .blob-a { width: 90px; height: 90px; top: 8%; left: 6%; background: #FFD1E8; animation-delay: 0s; }
+    .blob-b { width: 60px; height: 60px; top: 70%; left: 85%; background: #C9D6FF; animation-delay: 2s; }
+    .blob-c { width: 45px; height: 45px; top: 40%; left: 90%; background: #C6FFE0; animation-delay: 4s; }
+
+    @keyframes drift {
+        0%, 100% { transform: translateY(0px) translateX(0px) scale(1); }
+        50% { transform: translateY(-18px) translateX(10px) scale(1.08); }
+    }
+
+    @keyframes bounceIn {
+        0% { transform: scale(0.6); opacity: 0; }
+        60% { transform: scale(1.05); opacity: 1; }
+        100% { transform: scale(1); }
+    }
+
+    @keyframes popIn {
+        0% { transform: translateY(14px) scale(0.95); opacity: 0; }
+        100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes wiggle {
+        0%, 100% { transform: rotate(-6deg); }
+        50% { transform: rotate(6deg); }
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -120px 0; }
+        100% { background-position: 220px 0; }
+    }
+
+    @keyframes fillBar {
+        from { width: 0%; }
+    }
+
     .mobile-header {
         text-align: center;
-        padding: 12px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #6C63FF, #FF6584);
+        padding: 18px 12px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #8A7DFF, #FF8FB1);
         color: white;
         margin-bottom: 20px;
+        box-shadow: 0 10px 24px rgba(138, 125, 255, 0.35);
+        animation: bounceIn 0.6s ease;
+        position: relative;
+        z-index: 1;
+    }
+    .mobile-header h2 {
+        font-family: 'Baloo 2', sans-serif;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+    .header-emoji {
+        display: inline-block;
+        animation: wiggle 1.8s ease-in-out infinite;
+    }
+
+    /* cute pill-shaped animated button */
+    .stButton > button {
+        border-radius: 999px !important;
+        font-family: 'Baloo 2', sans-serif !important;
+        font-weight: 700 !important;
+        border: none !important;
+        background: linear-gradient(135deg, #8A7DFF, #FF8FB1) !important;
+        color: white !important;
+        box-shadow: 0 6px 16px rgba(138, 125, 255, 0.4) !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+    }
+    .stButton > button:hover {
+        transform: scale(1.04) translateY(-2px) !important;
+        box-shadow: 0 10px 22px rgba(255, 143, 177, 0.45) !important;
+    }
+    .stButton > button:active {
+        transform: scale(0.97) !important;
+    }
+
+    .result-card {
+        padding: 18px;
+        border-radius: 20px;
+        text-align: center;
+        animation: popIn 0.45s ease;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+        position: relative;
+        z-index: 1;
+    }
+    .result-card h3 {
+        font-family: 'Baloo 2', sans-serif;
+        font-weight: 700;
+    }
+    .result-icon {
+        display: inline-block;
+        animation: wiggle 1.4s ease-in-out infinite;
+    }
+
+    .suggestion-card {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: #F5F3FF;
+        border: 2px dashed #C7BFFF;
+        font-size: 0.98rem;
+        animation: popIn 0.5s ease;
+        margin-bottom: 10px;
+    }
+
+    .mini-row {
+        border-radius: 14px;
+        padding: 10px 12px 6px 12px;
+        margin-bottom: 10px;
+        background: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+        animation: popIn 0.45s ease both;
+    }
+    .mini-row .mini-icon { animation: wiggle 2.2s ease-in-out infinite; display: inline-block; }
+
+    .bar-track {
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        background: #F0F0F5;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        background-image: linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+        background-size: 60px 100%;
+        background-repeat: no-repeat;
+        animation: fillBar 0.9s ease forwards, shimmer 1.6s linear infinite 0.9s;
     }
 </style>
+
+<div class="blob blob-a"></div>
+<div class="blob blob-b"></div>
+<div class="blob blob-c"></div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="mobile-header">
-    <h2 style="margin:0; color: white;">📱 IFeelYou</h2>
-    <p style="margin:0; font-size: 0.9rem; opacity: 0.9;">Emotion Detector & Assistant</p>
+    <h2 style="margin:0; color: white;"><span class="header-emoji">📱</span> IFeelYou</h2>
+    <p style="margin:0; font-size: 0.9rem; opacity: 0.9;">Emotion Detector &amp; Assistant</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -212,8 +358,10 @@ if st.session_state.analysis_complete:
     # 1. Primary Result Banner
     st.markdown(
         f"""
-        <div style="background-color: {theme['bg']}; padding: 15px; border-radius: 12px; border: 2px solid {theme['color']}; text-align: center;">
-            <h3 style="color: {theme['color']}; margin: 0;">{theme['icon']} {predicted_emotion.upper()} ({confidence:.1f}%)</h3>
+        <div class="result-card" style="background-color: {theme['bg']}; border: 3px solid {theme['color']};">
+            <h3 style="color: {theme['color']}; margin: 0;">
+                <span class="result-icon">{theme['icon']}</span> {predicted_emotion.upper()} &nbsp;·&nbsp; {confidence:.1f}%
+            </h3>
         </div>
         """,
         unsafe_allow_html=True
@@ -225,7 +373,7 @@ if st.session_state.analysis_complete:
     st.markdown("### 💬 Suggested Response")
     if predicted_emotion in RESPONSES:
         suggestion = random.choice(RESPONSES[predicted_emotion])
-        st.info(suggestion)
+        st.markdown(f'<div class="suggestion-card">🌟 {suggestion}</div>', unsafe_allow_html=True)
         st.button("🔄 Show Another Suggestion", use_container_width=True)
     else:
         st.write("No template available for this emotion yet.")
@@ -237,9 +385,22 @@ if st.session_state.analysis_complete:
     scores = [(st.session_state.labels[str(i) if isinstance(st.session_state.labels, dict) and str(i) in st.session_state.labels else i], st.session_state.probs[i]) for i in range(len(st.session_state.probs))]
     top_3_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
 
-    for label, score in top_3_scores:
+    for i, (label, score) in enumerate(top_3_scores):
         lbl_lower = label.lower()
         lbl_theme = EMOTION_THEMES.get(lbl_lower, EMOTION_THEMES["neutral"])
-        
-        st.write(f"**{lbl_theme['icon']} {label.capitalize()}**: {score * 100:.1f}%")
-        st.progress(score)
+        pct = score * 100
+
+        st.markdown(
+            f"""
+            <div class="mini-row" style="animation-delay: {i * 0.12:.2f}s;">
+                <div style="display:flex; justify-content:space-between; font-weight:700; font-family:'Baloo 2',sans-serif;">
+                    <span><span class="mini-icon">{lbl_theme['icon']}</span> {label.capitalize()}</span>
+                    <span style="color:{lbl_theme['bar']};">{pct:.1f}%</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width:{pct:.1f}%; background-color:{lbl_theme['bar']}; animation-delay: {i * 0.12:.2f}s, {0.9 + i * 0.12:.2f}s;"></div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
